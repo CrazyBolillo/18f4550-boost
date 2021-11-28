@@ -25,3 +25,8 @@ void adc_read_voltage(uint16_t *read, float *voltage) {
     adc_read(read);
     *voltage = (*read) * adc_resolution;
 }
+
+void adc_chread_voltage(uint8_t channel, uint16_t *read, float *voltage) {
+    adc_set_channel(channel);
+    adc_read_voltage(read, voltage);
+}

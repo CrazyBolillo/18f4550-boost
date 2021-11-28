@@ -5,12 +5,15 @@
 #include "adc.h"
 
 #define ADC_TARGET_CHANNEL 0
+#define ADC_VOUT_CHANNEL 2
+#define ADC_FACTOR 4.34782608
 
 uint16_t adc_read_value;
-float adc_voltage;
+float target_voltage;
+float vout_voltage;
+uint8_t duty_cycle = 0;
 
-char buffer_one[17];
-char buffer_two[17];
+char buffer[8];
 
 void set_duty_cycle(uint16_t duty) {
     CCPR1L = (uint8_t) (duty >> 2);
@@ -21,25 +24,55 @@ void set_duty_cycle(uint16_t duty) {
 void main(void) {
     OSCCON = 0x73; // Using internal oscillator as system clock @8M Hz
     
+    TRISA = 0x0F;
     
     PORTC = 0x00;
     TRISC = 0x00;
     T2CON = 0x00;
-    PR2 = 0xFF;
-    set_duty_cycle(128);
+    PR2 = 0x64;
+    CCP1CON = 0x0F;
+    CCPR1L = 0x00;
+    set_duty_cycle(duty_cycle);
     
     ADCON0bits.ADON = 1;
     ADCON1 = 0x0B; // AN0:4 as analog inputs
     ADCON2 = 0x36; // Left justified. 16 TAD. FOSC/64
     
     lcd_init(true, false, false);
+    lcd_clear_display();
+    lcd_write_string("Vout:");
+    lcd_move_cursor(0x40);
+    lcd_write_string("Target:");
     
+    T2CONbits.TMR2ON = 1;
     while (1) {
-        lcd_clear_display();
-        adc_set_channel(ADC_TARGET_CHANNEL);
-        adc_read_voltage(&adc_read_value, &adc_voltage);
-        sprintf(buffer_one, "Voltaje: %.2f", adc_voltage);
-        lcd_write_string(buffer_one);
-        __delay_ms(100);
+        adc_chread_voltage(ADC_VOUT_CHANNEL, &adc_read_value, &vout_voltage);
+        vout_voltage *= ADC_FACTOR;
+        sprintf(buffer, "%.2f   ", vout_voltage);
+        lcd_move_cursor(0x06);
+        lcd_write_string(buffer);
+        
+        adc_chread_voltage(ADC_TARGET_CHANNEL, &adc_read_value, &target_voltage);
+        target_voltage *= 3;
+        if (target_voltage < 5) {
+            target_voltage = 5;
+        }
+        sprintf(buffer, "%.2f   ", target_voltage);
+        lcd_move_cursor(0x48);
+        lcd_write_string(buffer);
+        
+        if (vout_voltage > target_voltage) {
+            if (duty_cycle > 0) {
+                duty_cycle--;
+            }
+        }
+        else if (vout_voltage < target_voltage) {
+            if (duty_cycle < 255) {
+                duty_cycle++;
+            }
+        }
+        
+        set_duty_cycle(duty_cycle);
+        __delay_ms(10);
     }
 }

@@ -11,7 +11,7 @@
 uint16_t adc_read_value;
 float target_voltage;
 float vout_voltage;
-uint8_t duty_cycle = 0;
+uint16_t duty_cycle = 0;
 
 char buffer[8];
 
@@ -30,7 +30,7 @@ void main(void) {
     TRISC = 0x00;
     T2CON = 0x00;
     PR2 = 0x64;
-    CCP1CON = 0x0F;
+    CCP1CON = 0x0C;
     CCPR1L = 0x00;
     set_duty_cycle(duty_cycle);
     
@@ -46,33 +46,31 @@ void main(void) {
     
     T2CONbits.TMR2ON = 1;
     while (1) {
-        adc_chread_voltage(ADC_VOUT_CHANNEL, &adc_read_value, &vout_voltage);
-        vout_voltage *= ADC_FACTOR;
-        sprintf(buffer, "%.2f   ", vout_voltage);
+        for (uint8_t count = 0; count != 255; count++) {
+            adc_chread_voltage(ADC_VOUT_CHANNEL, &adc_read_value, &vout_voltage);
+            vout_voltage *= ADC_FACTOR;
+            adc_chread_voltage(ADC_TARGET_CHANNEL, &adc_read_value, &target_voltage);
+            target_voltage *= 3;
+            if (target_voltage < 5) {
+                target_voltage = 5;
+            }        
+            if (vout_voltage > target_voltage) {
+                if (duty_cycle > 0) {
+                    duty_cycle--;
+                }
+            }
+            else if (vout_voltage < target_voltage) {
+                if (duty_cycle < 512) {
+                    duty_cycle++;
+                }
+            }       
+            set_duty_cycle(duty_cycle);
+        }
+        sprintf(buffer, "%.2f  %03d", vout_voltage, duty_cycle);
         lcd_move_cursor(0x06);
         lcd_write_string(buffer);
-        
-        adc_chread_voltage(ADC_TARGET_CHANNEL, &adc_read_value, &target_voltage);
-        target_voltage *= 3;
-        if (target_voltage < 5) {
-            target_voltage = 5;
-        }
         sprintf(buffer, "%.2f   ", target_voltage);
         lcd_move_cursor(0x48);
         lcd_write_string(buffer);
-        
-        if (vout_voltage > target_voltage) {
-            if (duty_cycle > 0) {
-                duty_cycle--;
-            }
-        }
-        else if (vout_voltage < target_voltage) {
-            if (duty_cycle < 255) {
-                duty_cycle++;
-            }
-        }
-        
-        set_duty_cycle(duty_cycle);
-        __delay_ms(10);
     }
 }

@@ -38,39 +38,25 @@ void main(void) {
     ADCON1 = 0x0B; // AN0:4 as analog inputs
     ADCON2 = 0x36; // Left justified. 16 TAD. FOSC/64
     
-    lcd_init(true, false, false);
-    lcd_clear_display();
-    lcd_write_string("Vout:");
-    lcd_move_cursor(0x40);
-    lcd_write_string("Target:");
-    
     T2CONbits.TMR2ON = 1;
     while (1) {
-        for (uint8_t count = 0; count != 255; count++) {
-            adc_chread_voltage(ADC_VOUT_CHANNEL, &adc_read_value, &vout_voltage);
-            vout_voltage *= ADC_FACTOR;
-            adc_chread_voltage(ADC_TARGET_CHANNEL, &adc_read_value, &target_voltage);
-            target_voltage *= 3;
-            if (target_voltage < 5) {
-                target_voltage = 5;
-            }        
-            if (vout_voltage > target_voltage) {
-                if (duty_cycle > 0) {
-                    duty_cycle--;
-                }
+        adc_chread_voltage(ADC_VOUT_CHANNEL, &adc_read_value, &vout_voltage);
+        vout_voltage *= ADC_FACTOR;
+        adc_chread_voltage(ADC_TARGET_CHANNEL, &adc_read_value, &target_voltage);
+        target_voltage *= 3;
+        if (target_voltage < 5) {
+            target_voltage = 5;
+        }        
+        if (vout_voltage > target_voltage) {
+            if (duty_cycle > 0) {
+                duty_cycle--;
             }
-            else if (vout_voltage < target_voltage) {
-                if (duty_cycle < 512) {
-                    duty_cycle++;
-                }
-            }       
-            set_duty_cycle(duty_cycle);
         }
-        sprintf(buffer, "%.2f  %03d", vout_voltage, duty_cycle);
-        lcd_move_cursor(0x06);
-        lcd_write_string(buffer);
-        sprintf(buffer, "%.2f   ", target_voltage);
-        lcd_move_cursor(0x48);
-        lcd_write_string(buffer);
+        else if (vout_voltage < target_voltage) {
+            if (duty_cycle < 512) {
+                duty_cycle++;
+            }
+        }       
+        set_duty_cycle(duty_cycle);
     }
 }
